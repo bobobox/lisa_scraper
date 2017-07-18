@@ -32,10 +32,11 @@ def main():
     # Prowl config
     prowl_api_keys = config.get('prowl', 'api_keys').split(',')
 
-    alert_sent = False
-
     error_count = 0
     error_notify_threshold = 5
+
+    first_loop = True
+    last_alertable_update_datestring = ''
 
     while True:
 
@@ -55,6 +56,8 @@ def main():
                 send_prowl_alert('AWOOGA: {}'.format(err), prowl_api_keys)
                 raise
 
+            continue
+
         else:
 
             if error_count > 0:
@@ -64,18 +67,25 @@ def main():
 
         if (
              'lastUpdated' in data and
-             data['lastUpdated']['by']['username'] in officilitation_users
+             data['lastUpdated']['when'] != last_alertable_update_datestring 
            ):
+            
+            # Don't alert on first check, even if alert conditions otherwise
+            # met, because we don't have actual date info yet
+            if first_loop:
+            
+                first_loop = False
+                last_alertable_update_datestring = data['lastUpdated']['when']
+                print 'Initial datestring recorded'
 
-            if not alert_sent:
-                send_prowl_alert('Go sign up!\n{}'.format(message_url), prowl_api_keys)
+            elif data['lastUpdated']['by']['username'] in officilitation_users:
 
-            alert_sent = True
+                send_prowl_alert('Go check the page!\n{}'.format(message_url), prowl_api_keys)
+                last_alertable_update_datestring = data['lastUpdated']['when']
+                print 'Change detected'
 
-            print 'Change detected'
         else:
 
-            alert_sent = False
             print 'No change'
 
         time.sleep(check_period_s)
